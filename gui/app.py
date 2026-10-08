@@ -1,12 +1,11 @@
 """Giao diện chính (Tkinter) của ứng dụng mô phỏng GA giải bài toán TSP.
 
-Chức năng ở Phase 4:
+Chức năng:
     - Nhập tham số GA và kiểm tra hợp lệ.
     - Chạy GA ở luồng nền (xem gui/worker.py), giao diện không bị đơ.
     - Hiển thị log thời gian thực trong ScrolledText.
     - Nút Chạy / Dừng / Đặt lại, thanh tiến độ, thanh trạng thái.
-
-Khung biểu đồ được chừa sẵn, sẽ được vẽ ở Phase 5.
+    - Hai biểu đồ nhúng trong giao diện (gui/plots.py): hội tụ fitness và bản đồ 2D.
 Module này không chứa logic thuật toán GA.
 """
 
@@ -14,6 +13,7 @@ from __future__ import annotations
 
 import math
 import queue
+import time
 import tkinter as tk
 from tkinter import messagebox, scrolledtext, ttk
 from typing import Optional
@@ -29,6 +29,7 @@ from ga.algorithm import (
 )
 from ga.data import BaiToan, bai_toan_ha_noi, bai_toan_ngau_nhien
 from gui import worker as wk
+from gui.plots import BieuDo
 from gui.worker import GAWorker
 
 NGUON_HA_NOI = "15 địa danh Hà Nội"
@@ -38,6 +39,7 @@ NHAN_DOT_BIEN = {"Inversion (đảo đoạn)": DOT_BIEN_INVERSION, "Swap (hoán 
 
 SO_THONG_DIEP_TOI_DA_MOI_LAN = 200  # giới hạn số thông điệp xử lý mỗi lần poll để UI luôn mượt
 CHU_KY_POLL_MS = 40
+KHOANG_VE_LAI_S = 0.4  # tối thiểu giữa 2 lần vẽ lại biểu đồ khi đang chạy (giây)
 SO_DONG_LOG_TOI_DA = 600  # nếu nhiều thế hệ hơn thì log thưa bớt
 
 
@@ -102,11 +104,18 @@ class UngDungGA:
         self.ket_qua: Optional[GAResult] = None
         self.buoc_log = 1
         self.tong_the_he = 0
+        # Dữ liệu biểu đồ tích luỹ trong lúc chạy
+        self.ls_tot: list[float] = []
+        self.ls_tb: list[float] = []
+        self.tuyen_hien_tai: Optional[list[int]] = None
+        self.can_ve_lai = False
+        self.lan_ve_cuoi = 0.0
 
         self._tao_bien()
         self._dung_giao_dien()
         self._cap_nhat_trang_thai_nut(dang_chay=False)
         self._khi_doi_nguon_bai_toan()
+        self.bieu_do.hien_thi_bai_toan(self.bai_toan)
         goc.protocol("WM_DELETE_WINDOW", self._khi_dong_cua_so)
 
     # ------------------------------------------------------------ dựng UI
@@ -198,13 +207,10 @@ class UngDungGA:
         for nut in (self.nut_chay, self.nut_dung, self.nut_dat_lai):
             nut.pack(side="left", expand=True, fill="x", padx=2)
 
-        # --- Khung biểu đồ (Phase 5 sẽ vẽ vào đây)
-        self.khung_bieu_do = ttk.LabelFrame(self.goc, text="Biểu đồ", padding=10)
+        # --- Khung biểu đồ
+        self.khung_bieu_do = ttk.LabelFrame(self.goc, text="Biểu đồ", padding=4)
         self.khung_bieu_do.grid(row=0, column=1, sticky="nsew", padx=(4, 8), pady=(8, 4))
-        ttk.Label(
-            self.khung_bieu_do, text="(Biểu đồ hội tụ và bản đồ 2D sẽ được thêm ở Phase 5)",
-            foreground="gray",
-        ).pack(expand=True)
+        self.bieu_do = BieuDo(self.khung_bieu_do)
 
         # --- Log
         khung_log = ttk.LabelFrame(self.goc, text="Log thời gian thực", padding=6)
@@ -312,6 +318,8 @@ class UngDungGA:
         self.tong_the_he = cau_hinh.so_the_he
         self.buoc_log = max(1, math.ceil(cau_hinh.so_the_he / SO_DONG_LOG_TOI_DA))
         self.thanh_tien_do.configure(maximum=cau_hinh.so_the_he, value=0)
+        self._xoa_du_lieu_bieu_do()
+        self.bieu_do.hien_thi_bai_toan(bai_toan, cau_hinh.so_the_he)
 
         self.ghi_log("=== BẮT ĐẦU CHẠY GA ===")
         self.ghi_log(
@@ -344,7 +352,29 @@ class UngDungGA:
         self._xoa_log()
         self.ket_qua = None
         self.thanh_tien_do.configure(value=0)
+        self._xoa_du_lieu_bieu_do()
+        self.bieu_do.hien_thi_bai_toan(self.bai_toan)
         self.v_trang_thai.set("Sẵn sàng.")
+
+    def _xoa_du_lieu_bieu_do(self) -> None:
+        """Xoá dữ liệu biểu đồ tích luỹ của lần chạy trước."""
+        self.ls_tot = []
+        self.ls_tb = []
+        self.tuyen_hien_tai = None
+        self.can_ve_lai = False
+
+    def _ve_lai_bieu_do(self, ket_thuc: bool = False) -> None:
+        """Vẽ lại biểu đồ nếu có dữ liệu mới, giới hạn tần suất khi đang chạy.
+
+        Tham số:
+            ket_thuc: True khi GA đã xong - luôn vẽ đầy đủ, bỏ qua giới hạn tần suất.
+        """
+        bay_gio = time.monotonic()
+        if not self.can_ve_lai or (not ket_thuc and bay_gio - self.lan_ve_cuoi < KHOANG_VE_LAI_S):
+            return
+        self.bieu_do.cap_nhat(self.bai_toan, self.ls_tot, self.ls_tb, self.tuyen_hien_tai, self.tong_the_he)
+        self.can_ve_lai = False
+        self.lan_ve_cuoi = bay_gio
 
     # ------------------------------------------------------------ nhận dữ liệu từ luồng nền
     def _lay_thong_diep(self) -> None:
@@ -369,6 +399,7 @@ class UngDungGA:
             elif loai == wk.LOI:
                 self._xu_ly_loi(str(du_lieu))
                 ket_thuc = True
+        self._ve_lai_bieu_do()
         if ket_thuc:
             self.worker = None
             self._cap_nhat_trang_thai_nut(dang_chay=False)
@@ -378,6 +409,11 @@ class UngDungGA:
     def _xu_ly_the_he(self, tk_: ThongKeTheHe) -> None:
         """Ghi log và cập nhật tiến độ cho một thế hệ."""
         self.thanh_tien_do.configure(value=tk_.the_he)
+        self.ls_tot.append(tk_.tot_nhat)
+        self.ls_tb.append(tk_.trung_binh)
+        if tk_.cai_thien or self.tuyen_hien_tai is None:
+            self.tuyen_hien_tai = tk_.tuyen_tot_nhat
+        self.can_ve_lai = True
         if tk_.the_he == 0:
             self.ghi_log(f"[Khởi tạo] Quần thể ngẫu nhiên | Tốt nhất: {tk_.tot_nhat:.3f} km | TB: {tk_.trung_binh:.3f} km")
         elif tk_.the_he % self.buoc_log == 0 or tk_.cai_thien or tk_.the_he == self.tong_the_he:
@@ -392,6 +428,11 @@ class UngDungGA:
     def _xu_ly_xong(self, ket_qua: GAResult) -> None:
         """Hiển thị tổng kết khi GA kết thúc (hoặc bị dừng)."""
         self.ket_qua = ket_qua
+        self.ls_tot = list(ket_qua.lich_su_tot_nhat)
+        self.ls_tb = list(ket_qua.lich_su_trung_binh)
+        self.tuyen_hien_tai = ket_qua.tuyen_tot_nhat
+        self.can_ve_lai = True
+        self._ve_lai_bieu_do(ket_thuc=True)
         ten = self.bai_toan.ten_dia_diem
         tuyen = ket_qua.tuyen_tot_nhat
         self.ghi_log("=== BỊ DỪNG SỚM ===" if ket_qua.bi_dung else "=== HOÀN THÀNH ===")

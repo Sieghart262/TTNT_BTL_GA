@@ -121,13 +121,17 @@ def test_ui_chay_hoan_thanh_va_ghi_log(ung_dung):
     assert "BẮT ĐẦU" in log and "HOÀN THÀNH" in log and "Thế hệ 30/30" in log
     assert str(app.nut_chay["state"]) == "normal"
     assert app.ket_qua.so_the_he_da_chay == 30
+    # Hai biểu đồ đã được vẽ với dữ liệu thật
+    tot = [l for l in app.bieu_do.ax_hoi_tu.get_lines() if l.get_linewidth() == 2][0]
+    assert list(tot.get_ydata()) == app.ket_qua.lich_su_tot_nhat
+    assert len([a for a in app.bieu_do.ax_ban_do.texts if getattr(a, "arrow_patch", None) is not None]) == 15
 
 
 def test_ui_khong_dung_khi_dang_cho_do_tre(ung_dung):
     """Giao diện vẫn xử lý sự kiện (update) được trong lúc GA đang chạy chậm."""
     app = ung_dung
     app.v_so_the_he.set("200")
-    app.v_do_tre.set("20")
+    app.v_do_tre.set("50")
     app.bat_dau_chay()
     bom_su_kien(app, lambda: "Thế hệ" in app.o_log.get("1.0", "end"))
     assert app.worker is not None and app.worker.dang_chay
