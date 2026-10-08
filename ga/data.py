@@ -10,7 +10,9 @@ với Google Maps trước khi đưa vào báo cáo.
 from __future__ import annotations
 
 import math
-from typing import Sequence
+import random
+from dataclasses import dataclass
+from typing import Optional, Sequence
 
 import numpy as np
 
@@ -102,3 +104,59 @@ def tinh_tong_quang_duong(tuyen: Sequence[int], ma_tran: np.ndarray) -> float:
     """
     n = len(tuyen)
     return float(sum(ma_tran[tuyen[i]][tuyen[(i + 1) % n]] for i in range(n)))
+
+
+@dataclass
+class BaiToan:
+    """Một thể hiện của bài toán TSP: tên điểm, toạ độ và ma trận khoảng cách.
+
+    Thuộc tính:
+        ten_dia_diem: tên các điểm theo thứ tự chỉ số 0..N-1.
+        toa_do: mảng (N, 2) gồm (vĩ độ, kinh độ).
+        ma_tran: ma trận khoảng cách (N, N), đơn vị km.
+    """
+
+    ten_dia_diem: list[str]
+    toa_do: np.ndarray
+    ma_tran: np.ndarray
+
+    @property
+    def so_diem(self) -> int:
+        """Số địa điểm của bài toán."""
+        return len(self.ten_dia_diem)
+
+
+def bai_toan_ha_noi() -> BaiToan:
+    """Tạo bài toán chuẩn với 15 địa danh ở Hà Nội."""
+    toa_do = lay_toa_do()
+    return BaiToan(lay_ten_dia_diem(), toa_do, tao_ma_tran_khoang_cach(toa_do))
+
+
+# Khung toạ độ nội thành Hà Nội dùng để sinh điểm ngẫu nhiên.
+KHUNG_VI_DO = (20.97, 21.07)
+KHUNG_KINH_DO = (105.76, 105.92)
+
+
+def bai_toan_ngau_nhien(so_diem: int, seed: Optional[int] = None) -> BaiToan:
+    """Tạo bài toán gồm `so_diem` điểm ngẫu nhiên trong khung nội thành Hà Nội.
+
+    Dùng để thử độ co giãn của GA khi số điểm lớn hơn 15.
+
+    Tham số:
+        so_diem: số điểm cần sinh (>= 3).
+        seed: hạt giống ngẫu nhiên để tái lập (None = ngẫu nhiên).
+
+    Trả về:
+        BaiToan với các điểm tên "Điểm 1", "Điểm 2", ...
+    """
+    if so_diem < 3:
+        raise ValueError("Cần ít nhất 3 điểm.")
+    rng = random.Random(seed)
+    toa_do = np.array(
+        [
+            (rng.uniform(*KHUNG_VI_DO), rng.uniform(*KHUNG_KINH_DO))
+            for _ in range(so_diem)
+        ]
+    )
+    ten = [f"Điểm {i + 1}" for i in range(so_diem)]
+    return BaiToan(ten, toa_do, tao_ma_tran_khoang_cach(toa_do))

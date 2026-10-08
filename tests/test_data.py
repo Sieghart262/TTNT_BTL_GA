@@ -56,3 +56,24 @@ def test_tong_quang_duong_khong_phu_thuoc_diem_dau():
     tuyen = list(range(15))
     xoay = tuyen[5:] + tuyen[:5]
     assert tinh_tong_quang_duong(tuyen, m) == pytest.approx(tinh_tong_quang_duong(xoay, m))
+
+
+def test_bai_toan_ha_noi():
+    from ga.data import bai_toan_ha_noi
+
+    bt = bai_toan_ha_noi()
+    assert bt.so_diem == 15
+    assert bt.toa_do.shape == (15, 2)
+    assert bt.ma_tran.shape == (15, 15)
+
+
+def test_bai_toan_ngau_nhien():
+    from ga.data import bai_toan_ngau_nhien
+
+    bt = bai_toan_ngau_nhien(40, seed=1)
+    assert bt.so_diem == 40 and bt.ma_tran.shape == (40, 40)
+    assert np.allclose(bt.ma_tran, bt.ma_tran.T)
+    assert np.array_equal(bt.toa_do, bai_toan_ngau_nhien(40, seed=1).toa_do)  # tái lập
+    assert not np.array_equal(bt.toa_do, bai_toan_ngau_nhien(40, seed=2).toa_do)
+    with pytest.raises(ValueError):
+        bai_toan_ngau_nhien(2)
