@@ -1,0 +1,14 @@
+# Môi trường ảo và cache Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# IDE / hệ điều hành
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Kết quả sinh ra khi chạy
+*.log
