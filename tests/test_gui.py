@@ -176,3 +176,23 @@ def test_ui_dong_cua_so_khi_dang_chay(ung_dung):
     app._khi_dong_cua_so()
     w._luong.join(timeout=5)
     assert not w.dang_chay
+
+
+def test_ui_luu_anh_bieu_do(ung_dung, monkeypatch, tmp_path):
+    app = ung_dung
+    assert str(app.nut_luu_anh["state"]) == "disabled"  # chưa có kết quả
+    app.v_so_ca_the.set("30")
+    app.v_so_the_he.set("10")
+    app.v_do_tre.set("0")
+    app.bat_dau_chay()
+    bom_su_kien(app, lambda: app.ket_qua is not None and app.worker is None)
+    assert str(app.nut_luu_anh["state"]) == "normal"
+
+    file_anh = tmp_path / "bd.png"
+    monkeypatch.setattr("gui.app.filedialog.asksaveasfilename", lambda **k: str(file_anh))
+    app.luu_anh_bieu_do()
+    assert file_anh.exists() and file_anh.stat().st_size > 5000
+    assert "Đã lưu ảnh" in app.o_log.get("1.0", "end")
+
+    app.dat_lai()
+    assert str(app.nut_luu_anh["state"]) == "disabled"

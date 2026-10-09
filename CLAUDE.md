@@ -12,7 +12,7 @@
 - Danh sách (toạ độ gần đúng, cần kiểm tra lại trên Google Maps trước khi nộp báo cáo):
   Hồ Hoàn Kiếm, Lăng Bác, Văn Miếu – Quốc Tử Giám, Hồ Tây, Nhà hát Lớn, Bến xe Mỹ Đình, SVĐ Quốc gia Mỹ Đình, ĐH Bách khoa HN, ĐH Kinh tế Quốc dân, Ga Hà Nội, Royal City, Times City, Aeon Mall Long Biên, Cầu Long Biên, Công viên Thống Nhất.
 - Lý do chọn: 15 điểm đủ nhỏ để chạy nhanh, đủ lớn (14!/2 ≈ 43 tỷ chu trình) để chứng minh GA hữu ích; toạ độ thật giúp báo cáo có ý nghĩa thực tế.
-- Mở rộng (tuỳ chọn): nút "Tạo điểm ngẫu nhiên" với N tuỳ ý để thử độ co giãn của thuật toán.
+- Đã có: chọn bài toán "N điểm ngẫu nhiên" (N từ 3 đến 200) trong giao diện để thử độ co giãn của thuật toán.
 
 ## 2. Công nghệ
 
@@ -24,9 +24,9 @@
 | `threading` + `queue.Queue` | Chạy GA ở luồng nền, truyền log/kết quả về luồng giao diện an toàn |
 | NumPy | Tính ma trận khoảng cách, tăng tốc |
 | `random`, `math`, `dataclasses`, `typing` | Hỗ trợ GA, type hint |
-| pytest (tuỳ chọn) | Kiểm thử phần logic GA |
+| pytest | Kiểm thử logic GA, worker và giao diện |
 
-Cài đặt: `pip install matplotlib numpy` (Tkinter đi kèm Python trên Windows).
+Cài đặt: tạo venv rồi `pip install -r requirements.txt` (phiên bản đã được ghim; Tkinter đi kèm Python trên Windows).
 
 ## 3. Cấu trúc thư mục
 
@@ -35,18 +35,20 @@ TTNT_BTL_GA/
 ├── CLAUDE.md
 ├── requirements.txt
 ├── main.py                 # Điểm khởi chạy, chỉ tạo cửa sổ và chạy mainloop
+├── experiments.py          # Chạy thí nghiệm nhiều bộ tham số -> docs/ket_qua_thi_nghiem.*
 ├── ga/                     # LOGIC THUẬT TOÁN — KHÔNG import tkinter / matplotlib
 │   ├── __init__.py
-│   ├── data.py             # 15 địa điểm, hàm Haversine, ma trận khoảng cách
+│   ├── data.py             # 15 địa điểm, Haversine, ma trận khoảng cách, BaiToan (Hà Nội / ngẫu nhiên)
 │   ├── operators.py        # Khởi tạo, chọn lọc, lai ghép OX, đột biến, elitism
-│   └── algorithm.py        # Lớp GeneticAlgorithm, vòng lặp tiến hoá
+│   ├── algorithm.py        # GAConfig, GAResult, GeneticAlgorithm (vòng lặp tiến hoá)
+│   └── baseline.py         # Held-Karp (nghiệm tối ưu), láng giềng gần nhất — để đối chứng
 ├── gui/                    # LOGIC GIAO DIỆN — KHÔNG chứa thuật toán GA
 │   ├── __init__.py
-│   ├── app.py              # Cửa sổ chính, bố cục, nút Start/Stop, xử lý sự kiện
+│   ├── app.py              # Cửa sổ chính, nhập/kiểm tra tham số, log, nút điều khiển
 │   ├── plots.py            # Vẽ biểu đồ hội tụ và bản đồ 2D
 │   └── worker.py           # Thread chạy GA, đẩy dữ liệu vào Queue
-├── tests/                  # Test cho ga/ (tuỳ chọn)
-└── docs/                   # Ảnh chụp màn hình, nội dung báo cáo
+├── tests/                  # Test cho ga/, worker, plots, giao diện, thí nghiệm
+└── docs/                   # Kết quả thí nghiệm, ảnh chụp màn hình cho báo cáo
 ```
 
 ## 4. Quy tắc BẮT BUỘC (không được vi phạm)
@@ -57,7 +59,7 @@ TTNT_BTL_GA/
 4. **Hai biểu đồ khi chạy xong** (đặt trong giao diện, không mở cửa sổ Matplotlib riêng):
    - Biểu đồ 1: **hội tụ fitness** — quãng đường tốt nhất (và trung bình) theo thế hệ, quãng đường giảm dần.
    - Biểu đồ 2: **bản đồ 2D** — vẽ các địa điểm (kèm nhãn) và nối theo thứ tự tuyến đường tốt nhất, có mũi tên/đánh số thứ tự, khép kín về điểm đầu.
-5. **Tách biệt logic:** Thư mục `ga/` tuyệt đối không import `tkinter`/`matplotlib`; `gui/` không chứa phép chọn lọc/lai/đột biến. GA giao tiếp với giao diện qua **callback** (`on_generation(gen, best, avg, route)`) hoặc generator, để có thể test GA độc lập bằng dòng lệnh.
+5. **Tách biệt logic:** Thư mục `ga/` tuyệt đối không import `tkinter`/`matplotlib`; `gui/` không chứa phép chọn lọc/lai/đột biến. GA giao tiếp với giao diện qua **callback** (`on_generation(thong_ke: ThongKeTheHe)`, chứa thế hệ, quãng đường tốt nhất/trung bình, tuyến, số lần lai ghép/đột biến) hoặc generator, để có thể test GA độc lập bằng dòng lệnh.
 6. **Comment và docstring bằng tiếng Việt** cho mọi module, lớp, hàm (mô tả mục đích, tham số, giá trị trả về, ý nghĩa thuật toán) để đưa trực tiếp vào báo cáo. Tên biến/hàm vẫn viết tiếng Anh `snake_case`.
 
 ## 5. Thiết kế thuật toán GA (mặc định, có thể chỉnh)
@@ -99,26 +101,38 @@ TTNT_BTL_GA/
 
 ## 8. Lệnh thường dùng
 
-```bash
-pip install -r requirements.txt   # Cài thư viện
-python main.py                    # Chạy ứng dụng
-pytest tests/                     # Chạy kiểm thử (nếu có)
+```powershell
+python -m venv .venv                     # Tạo môi trường ảo (lần đầu)
+.venv\Scripts\Activate.ps1               # Kích hoạt venv
+pip install -r requirements.txt          # Cài thư viện
+python main.py                           # Chạy ứng dụng
+python -m pytest -q                      # Chạy toàn bộ kiểm thử (~4 giây)
+python experiments.py                    # Thí nghiệm đầy đủ, 20 seed/cấu hình (~2 phút)
+python experiments.py --nhanh            # Thí nghiệm rút gọn, 3 seed
 ```
 
 ## 9. Kiểm tra trước khi nộp (Definition of Done)
 
-- [ ] Nhập được 4 tham số, có kiểm tra hợp lệ
-- [ ] Log hiện theo thời gian thực, giao diện không đơ khi chạy
-- [ ] Có nút Dừng hoạt động, đóng cửa sổ không treo tiến trình
-- [ ] Hiện đủ 2 biểu đồ trên giao diện sau khi chạy xong
-- [ ] `ga/` không import tkinter/matplotlib; `gui/` không chứa logic GA
-- [ ] Mọi module/lớp/hàm có docstring tiếng Việt
-- [ ] Chụp ảnh màn hình và ghi kết quả thử nghiệm với nhiều bộ tham số vào `docs/` cho báo cáo
+Đã được kiểm chứng bằng test tự động (73 test) hoặc script kiểm tra:
+- [x] Nhập được 4 tham số, có kiểm tra hợp lệ (6 trường hợp nhập sai đều hiện thông báo, không crash)
+- [x] Log hiện theo thời gian thực, giao diện không đơ khi chạy (chạy qua luồng nền + Queue)
+- [x] Có nút Dừng hoạt động, đóng cửa sổ không treo tiến trình
+- [x] Hiện đủ 2 biểu đồ trên giao diện sau khi chạy xong
+- [x] `ga/` không import tkinter/matplotlib; `gui/` không chứa logic GA
+- [x] Mọi module/lớp/hàm (kể cả hàm phụ) có docstring tiếng Việt — 90 mục, kiểm tra bằng AST
+- [x] Kết quả thử nghiệm nhiều bộ tham số: `docs/ket_qua_thi_nghiem.md` và `.csv`
+
+Việc còn lại do người làm báo cáo thực hiện:
+- [ ] Đối chiếu toạ độ 15 địa danh trong `ga/data.py` với Google Maps
+- [ ] Chụp ảnh màn hình giao diện (dùng nút "Lưu ảnh biểu đồ" cho hai biểu đồ) và đưa vào `docs/`
+- [ ] Đọc lại và diễn giải số liệu trong `docs/ket_qua_thi_nghiem.md` cho phần nhận xét của báo cáo
 
 ## 10. Hướng mở rộng (nếu còn thời gian)
 
-- So sánh các toán tử (Tournament vs Roulette, Swap vs Inversion, OX vs PMX).
+Đã làm: so sánh toán tử (Tournament/Roulette, Swap/Inversion), so sánh với Nearest Neighbor và nghiệm tối ưu Held–Karp, lưu biểu đồ ra PNG/PDF, xuất kết quả thí nghiệm ra CSV/Markdown, thử N điểm ngẫu nhiên.
+
+Chưa làm:
+- Thêm toán tử PMX để so sánh với OX.
+- Cải tiến GA để thắng Nearest Neighbor khi N lớn (khởi tạo một phần quần thể bằng NN, tìm kiếm cục bộ 2-opt — memetic algorithm).
 - Hoạt ảnh tuyến đường tốt nhất cập nhật theo thế hệ.
-- So sánh kết quả GA với thuật toán Nearest Neighbor và (vì N=15) lời giải tối ưu bằng Held–Karp.
-- Xuất log và biểu đồ ra file CSV/PNG.
 - Nền bản đồ thật bằng ảnh tĩnh của Hà Nội phía sau các điểm.

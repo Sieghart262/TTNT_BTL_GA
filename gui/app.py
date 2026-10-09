@@ -15,7 +15,7 @@ import math
 import queue
 import time
 import tkinter as tk
-from tkinter import messagebox, scrolledtext, ttk
+from tkinter import filedialog, messagebox, scrolledtext, ttk
 from typing import Optional
 
 from ga.algorithm import (
@@ -206,6 +206,8 @@ class UngDungGA:
         self.nut_dat_lai = ttk.Button(khung_nut, text="Đặt lại", command=self.dat_lai)
         for nut in (self.nut_chay, self.nut_dung, self.nut_dat_lai):
             nut.pack(side="left", expand=True, fill="x", padx=2)
+        self.nut_luu_anh = ttk.Button(khung_tham_so, text="Lưu ảnh biểu đồ", command=self.luu_anh_bieu_do)
+        self.nut_luu_anh.grid(row=dong + 1, column=0, columnspan=2, pady=(6, 0), sticky="ew", padx=2)
 
         # --- Khung biểu đồ
         self.khung_bieu_do = ttk.LabelFrame(self.goc, text="Biểu đồ", padding=4)
@@ -244,6 +246,8 @@ class UngDungGA:
         self.nut_chay.configure(state=bat)
         self.nut_dat_lai.configure(state=bat)
         self.nut_dung.configure(state="normal" if dang_chay else "disabled")
+        co_ket_qua = not dang_chay and self.ket_qua is not None
+        self.nut_luu_anh.configure(state="normal" if co_ket_qua else "disabled")
         if not dang_chay:
             self._khi_doi_nguon_bai_toan()
         else:
@@ -355,6 +359,22 @@ class UngDungGA:
         self._xoa_du_lieu_bieu_do()
         self.bieu_do.hien_thi_bai_toan(self.bai_toan)
         self.v_trang_thai.set("Sẵn sàng.")
+        self._cap_nhat_trang_thai_nut(dang_chay=False)
+
+    def luu_anh_bieu_do(self) -> None:
+        """Xử lý nút Lưu ảnh: lưu hai biểu đồ hiện tại ra file PNG để đưa vào báo cáo."""
+        duong_dan = filedialog.asksaveasfilename(
+            parent=self.goc, title="Lưu ảnh biểu đồ", defaultextension=".png",
+            filetypes=[("Ảnh PNG", "*.png"), ("Ảnh PDF", "*.pdf")], initialfile="bieu_do_ga.png",
+        )
+        if not duong_dan:
+            return
+        try:
+            self.bieu_do.luu_anh(duong_dan)
+        except OSError as loi:
+            messagebox.showerror("Không lưu được ảnh", str(loi), parent=self.goc)
+            return
+        self.ghi_log(f"Đã lưu ảnh biểu đồ: {duong_dan}")
 
     def _xoa_du_lieu_bieu_do(self) -> None:
         """Xoá dữ liệu biểu đồ tích luỹ của lần chạy trước."""

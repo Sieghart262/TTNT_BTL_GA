@@ -171,6 +171,7 @@ def _dat_nhan_ten(ax: Axes, bai_toan: BaiToan, co_chu: float = 7.0) -> int:
     cao = co_chu * 1.35 * px_moi_pt
 
     def chong_nhau(a, b) -> bool:
+        """Kiểm tra hai hình chữ nhật (x0, y0, x1, y1) có giao nhau không."""
         return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
 
     so_bo = 0
