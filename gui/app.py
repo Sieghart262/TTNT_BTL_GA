@@ -28,8 +28,10 @@ from ga.algorithm import (
     ThongKeTheHe,
 )
 from ga.data import BaiToan, bai_toan_ha_noi, bai_toan_ngau_nhien
+from gui import theme as th
 from gui import worker as wk
 from gui.plots import BieuDo
+from gui.theme import ap_dung_theme
 from gui.worker import GAWorker
 
 NGUON_HA_NOI = "15 địa danh Hà Nội"
@@ -96,8 +98,8 @@ class UngDungGA:
         """
         self.goc = goc
         goc.title("Mô phỏng Giải thuật di truyền - Bài toán người chào hàng (TSP)")
-        goc.geometry("1150x760")
-        goc.minsize(900, 600)
+        goc.geometry("1200x860")
+        goc.minsize(1000, 740)
 
         self.worker: Optional[GAWorker] = None
         self.bai_toan: BaiToan = bai_toan_ha_noi()
@@ -134,16 +136,43 @@ class UngDungGA:
         self.v_trang_thai = tk.StringVar(value="Sẵn sàng.")
 
     def _dung_giao_dien(self) -> None:
-        """Bố cục: tham số (trái) | biểu đồ (phải) | log (dưới) | trạng thái."""
+        """Bố cục: tiêu đề | tham số (trái) + biểu đồ (phải) | log | trạng thái."""
+        ap_dung_theme(self.goc)
         self.goc.columnconfigure(1, weight=1)
-        self.goc.rowconfigure(0, weight=3)
-        self.goc.rowconfigure(1, weight=2)
+        self.goc.rowconfigure(1, weight=3, minsize=520)
+        self.goc.rowconfigure(2, weight=2)
+
+        # --- Thanh tiêu đề
+        tieu_de = tk.Frame(self.goc, background=th.XANH_DAM)
+        tieu_de.grid(row=0, column=0, columnspan=2, sticky="ew")
+        tk.Label(tieu_de, text="Mô phỏng Giải thuật di truyền", font=th.FONT_TIEU_DE,
+                 background=th.XANH_DAM, foreground="white").pack(side="left", padx=(16, 10), pady=10)
+        tk.Label(tieu_de, text="Bài toán người chào hàng (TSP) · 15 địa danh Hà Nội", font=th.FONT,
+                 background=th.XANH_DAM, foreground="#94a3b8").pack(side="left", pady=10)
+        tk.Frame(tieu_de, background=th.NHAN, height=3).pack(side="bottom", fill="x")
 
         # --- Khung tham số
-        khung_tham_so = ttk.LabelFrame(self.goc, text="Tham số", padding=10)
-        khung_tham_so.grid(row=0, column=0, sticky="nsew", padx=(8, 4), pady=(8, 4))
+        khung_tham_so = ttk.LabelFrame(self.goc, text=" Tham số ", padding=10, style="The.TLabelframe")
+        khung_tham_so.grid(row=1, column=0, sticky="nsew", padx=(12, 6), pady=(12, 6))
+        khung_tham_so.columnconfigure(1, weight=1)
 
         dong = 0
+
+        def muc(tieu: str) -> None:
+            """Thêm một tiêu đề nhóm (chữ nhỏ màu nhấn) vào khung tham số."""
+            nonlocal dong
+            ttk.Label(khung_tham_so, text=tieu, style="Muc.TLabel").grid(
+                row=dong, column=0, columnspan=2, sticky="w", pady=(0 if dong == 0 else 8, 3))
+            dong += 1
+
+        def hang(nhan: str, widget: ttk.Widget) -> None:
+            """Thêm một hàng gồm nhãn (trái) và ô nhập/chọn (phải)."""
+            nonlocal dong
+            ttk.Label(khung_tham_so, text=nhan, style="The.TLabel").grid(row=dong, column=0, sticky="w", pady=2)
+            widget.grid(row=dong, column=1, sticky="ew", pady=2, padx=(10, 0))
+            dong += 1
+
+        muc("THAM SỐ GIẢI THUẬT")
         self.o_nhap: dict[str, ttk.Widget] = {}
         for nhan, bien, khoa in [
             ("Số cá thể", self.v_so_ca_the, "so_ca_the"),
@@ -151,85 +180,69 @@ class UngDungGA:
             ("Tỷ lệ đột biến (0-1)", self.v_ty_le_dot_bien, "ty_le_dot_bien"),
             ("Tỷ lệ lai ghép (0-1)", self.v_ty_le_lai_ghep, "ty_le_lai_ghep"),
         ]:
-            ttk.Label(khung_tham_so, text=nhan).grid(row=dong, column=0, sticky="w", pady=2)
-            o = ttk.Entry(khung_tham_so, textvariable=bien, width=12)
-            o.grid(row=dong, column=1, sticky="e", pady=2)
+            o = ttk.Entry(khung_tham_so, textvariable=bien, width=14, justify="right")
+            hang(nhan, o)
             self.o_nhap[khoa] = o
-            dong += 1
 
-        ttk.Separator(khung_tham_so).grid(row=dong, column=0, columnspan=2, sticky="ew", pady=6)
-        dong += 1
+        muc("TOÁN TỬ & MÔ PHỎNG")
+        self.o_chon_loc = ttk.Combobox(khung_tham_so, textvariable=self.v_chon_loc,
+                                       values=list(NHAN_CHON_LOC), state="readonly", width=20)
+        hang("Chọn lọc", self.o_chon_loc)
+        self.o_dot_bien = ttk.Combobox(khung_tham_so, textvariable=self.v_dot_bien,
+                                       values=list(NHAN_DOT_BIEN), state="readonly", width=20)
+        hang("Đột biến", self.o_dot_bien)
+        self.o_do_tre = ttk.Entry(khung_tham_so, textvariable=self.v_do_tre, width=14, justify="right")
+        hang("Độ trễ/thế hệ (ms)", self.o_do_tre)
+        self.o_seed = ttk.Entry(khung_tham_so, textvariable=self.v_seed, width=14, justify="right")
+        hang("Seed (trống = ngẫu nhiên)", self.o_seed)
 
-        ttk.Label(khung_tham_so, text="Chọn lọc").grid(row=dong, column=0, sticky="w", pady=2)
-        self.o_chon_loc = ttk.Combobox(
-            khung_tham_so, textvariable=self.v_chon_loc, values=list(NHAN_CHON_LOC),
-            state="readonly", width=20,
-        )
-        self.o_chon_loc.grid(row=dong, column=1, sticky="e", pady=2)
-        dong += 1
-        ttk.Label(khung_tham_so, text="Đột biến").grid(row=dong, column=0, sticky="w", pady=2)
-        self.o_dot_bien = ttk.Combobox(
-            khung_tham_so, textvariable=self.v_dot_bien, values=list(NHAN_DOT_BIEN),
-            state="readonly", width=20,
-        )
-        self.o_dot_bien.grid(row=dong, column=1, sticky="e", pady=2)
-        dong += 1
-        ttk.Label(khung_tham_so, text="Độ trễ/thế hệ (ms)").grid(row=dong, column=0, sticky="w", pady=2)
-        self.o_do_tre = ttk.Entry(khung_tham_so, textvariable=self.v_do_tre, width=12)
-        self.o_do_tre.grid(row=dong, column=1, sticky="e", pady=2)
-        dong += 1
-        ttk.Label(khung_tham_so, text="Seed (trống = ngẫu nhiên)").grid(row=dong, column=0, sticky="w", pady=2)
-        self.o_seed = ttk.Entry(khung_tham_so, textvariable=self.v_seed, width=12)
-        self.o_seed.grid(row=dong, column=1, sticky="e", pady=2)
-        dong += 1
-
-        ttk.Separator(khung_tham_so).grid(row=dong, column=0, columnspan=2, sticky="ew", pady=6)
-        dong += 1
-
-        ttk.Label(khung_tham_so, text="Bài toán").grid(row=dong, column=0, sticky="w", pady=2)
-        self.o_nguon = ttk.Combobox(
-            khung_tham_so, textvariable=self.v_nguon, values=[NGUON_HA_NOI, NGUON_NGAU_NHIEN],
-            state="readonly", width=20,
-        )
-        self.o_nguon.grid(row=dong, column=1, sticky="e", pady=2)
+        muc("BÀI TOÁN")
+        self.o_nguon = ttk.Combobox(khung_tham_so, textvariable=self.v_nguon,
+                                    values=[NGUON_HA_NOI, NGUON_NGAU_NHIEN], state="readonly", width=20)
         self.o_nguon.bind("<<ComboboxSelected>>", lambda _e: self._khi_doi_nguon_bai_toan())
-        dong += 1
-        ttk.Label(khung_tham_so, text="Số điểm N (3-200)").grid(row=dong, column=0, sticky="w", pady=2)
-        self.o_so_diem = ttk.Entry(khung_tham_so, textvariable=self.v_so_diem, width=12)
-        self.o_so_diem.grid(row=dong, column=1, sticky="e", pady=2)
-        dong += 1
+        hang("Nguồn dữ liệu", self.o_nguon)
+        self.o_so_diem = ttk.Entry(khung_tham_so, textvariable=self.v_so_diem, width=14, justify="right")
+        hang("Số điểm N (3-200)", self.o_so_diem)
 
-        khung_nut = ttk.Frame(khung_tham_so)
+        khung_nut = ttk.Frame(khung_tham_so, style="The.TFrame")
         khung_nut.grid(row=dong, column=0, columnspan=2, pady=(12, 0), sticky="ew")
-        self.nut_chay = ttk.Button(khung_nut, text="Chạy", command=self.bat_dau_chay)
-        self.nut_dung = ttk.Button(khung_nut, text="Dừng", command=self.dung_chay)
-        self.nut_dat_lai = ttk.Button(khung_nut, text="Đặt lại", command=self.dat_lai)
+        self.nut_chay = ttk.Button(khung_nut, text="▶  Chạy", style="Chay.TButton", command=self.bat_dau_chay)
+        self.nut_dung = ttk.Button(khung_nut, text="■  Dừng", style="Dung.TButton", command=self.dung_chay)
+        self.nut_dat_lai = ttk.Button(khung_nut, text="↺  Đặt lại", style="Phu.TButton", command=self.dat_lai)
         for nut in (self.nut_chay, self.nut_dung, self.nut_dat_lai):
             nut.pack(side="left", expand=True, fill="x", padx=2)
-        self.nut_luu_anh = ttk.Button(khung_tham_so, text="Lưu ảnh biểu đồ", command=self.luu_anh_bieu_do)
-        self.nut_luu_anh.grid(row=dong + 1, column=0, columnspan=2, pady=(6, 0), sticky="ew", padx=2)
+        self.nut_luu_anh = ttk.Button(khung_tham_so, text="Lưu ảnh biểu đồ", style="Nhan.TButton",
+                                      command=self.luu_anh_bieu_do)
+        self.nut_luu_anh.grid(row=dong + 1, column=0, columnspan=2, pady=(8, 0), sticky="ew", padx=2)
 
         # --- Khung biểu đồ
-        self.khung_bieu_do = ttk.LabelFrame(self.goc, text="Biểu đồ", padding=4)
-        self.khung_bieu_do.grid(row=0, column=1, sticky="nsew", padx=(4, 8), pady=(8, 4))
+        self.khung_bieu_do = ttk.LabelFrame(self.goc, text=" Biểu đồ ", padding=6, style="The.TLabelframe")
+        self.khung_bieu_do.grid(row=1, column=1, sticky="nsew", padx=(6, 12), pady=(12, 6))
         self.bieu_do = BieuDo(self.khung_bieu_do)
 
-        # --- Log
-        khung_log = ttk.LabelFrame(self.goc, text="Log thời gian thực", padding=6)
-        khung_log.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=8, pady=4)
+        # --- Log (nền tối, tô màu theo loại dòng)
+        khung_log = ttk.LabelFrame(self.goc, text=" Log thời gian thực ", padding=6, style="The.TLabelframe")
+        khung_log.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=12, pady=6)
         khung_log.rowconfigure(0, weight=1)
         khung_log.columnconfigure(0, weight=1)
         self.o_log = scrolledtext.ScrolledText(
-            khung_log, height=10, state="disabled", wrap="word", font=("Consolas", 10)
+            khung_log, height=10, state="disabled", wrap="word", font=th.FONT_LOG,
+            background=th.LOG_NEN, foreground=th.LOG_CHU, insertbackground="white",
+            relief="flat", padx=10, pady=8, borderwidth=0,
         )
         self.o_log.grid(row=0, column=0, sticky="nsew")
+        for ten_tag, mau in th.LOG_MAU.items():
+            self.o_log.tag_configure(ten_tag, foreground=mau)
+        self.o_log.tag_configure("tieu_de", font=(th.FONT_LOG[0], th.FONT_LOG[1], "bold"))
 
         # --- Thanh trạng thái
         khung_tt = ttk.Frame(self.goc)
-        khung_tt.grid(row=2, column=0, columnspan=2, sticky="ew", padx=8, pady=(0, 8))
-        khung_tt.columnconfigure(1, weight=1)
-        ttk.Label(khung_tt, textvariable=self.v_trang_thai).grid(row=0, column=0, sticky="w")
-        self.thanh_tien_do = ttk.Progressbar(khung_tt, mode="determinate", length=300)
+        khung_tt.grid(row=3, column=0, columnspan=2, sticky="ew", padx=12, pady=(6, 12))
+        khung_tt.columnconfigure(0, weight=1)
+        ttk.Label(khung_tt, textvariable=self.v_trang_thai, style="TrangThai.TLabel").grid(
+            row=0, column=0, sticky="w")
+        self.thanh_tien_do = ttk.Progressbar(khung_tt, mode="determinate", length=320,
+                                             style="Xanh.Horizontal.TProgressbar")
         self.thanh_tien_do.grid(row=0, column=1, sticky="e")
 
     # ------------------------------------------------------------ trạng thái UI
@@ -259,10 +272,25 @@ class UngDungGA:
         self.o_so_diem.configure(state="normal" if ngau_nhien else "disabled")
 
     # ------------------------------------------------------------ log
+    @staticmethod
+    def _chon_mau_log(noi_dung: str) -> str:
+        """Chọn nhãn màu cho một dòng log dựa vào nội dung (xem th.LOG_MAU)."""
+        if noi_dung.startswith("==="):
+            return "tieu_de"
+        if noi_dung.startswith("!!!"):
+            return "loi"
+        if noi_dung.startswith("[Khởi tạo]"):
+            return "khoi_tao"
+        if "★" in noi_dung:
+            return "ky_luc"
+        if noi_dung.startswith(("Quãng đường:", "Tuyến đường:", "Số thế hệ đã chạy:")):
+            return "tong_ket"
+        return "thuong"
+
     def ghi_log(self, noi_dung: str) -> None:
-        """Thêm một dòng vào ô log và tự cuộn xuống cuối."""
+        """Thêm một dòng vào ô log (tô màu theo loại) và tự cuộn xuống cuối."""
         self.o_log.configure(state="normal")
-        self.o_log.insert("end", noi_dung + "\n")
+        self.o_log.insert("end", noi_dung + "\n", self._chon_mau_log(noi_dung))
         self.o_log.see("end")
         self.o_log.configure(state="disabled")
 

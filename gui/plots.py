@@ -142,7 +142,7 @@ def ve_ban_do(ax: Axes, bai_toan: BaiToan, tuyen: Optional[Sequence[int]] = None
     if n <= SO_DIEM_TOI_DA_VE_TEN:
         so_bo = _dat_nhan_ten(ax, bai_toan)
         if so_bo:
-            ax.text(0.01, 0.01, f"{so_bo} tên bị ẩn do các điểm quá gần nhau (xem trong log)",
+            ax.text(0.01, 0.01, f"{so_bo} tên bị ẩn (xem log)",
                     transform=ax.transAxes, fontsize=7, color=MAU_CHU_PHU, va="bottom")
 
 
